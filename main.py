@@ -1,11 +1,11 @@
 from dotenv import load_dotenv
 from langchain_mistralai import ChatMistralAI
-from langchain_community.document_loaders import TextLoader
+from langchain_community.document_loaders import UnstructuredExcelLoader
 from langchain_core.prompts import ChatPromptTemplate
 
 load_dotenv()
 
-data = TextLoader("documentLoaders/Striver Sheet.xlsx")
+data = UnstructuredExcelLoader("documentLoaders/Striver Sheet.xlsx", mode="elements")
 docs= data.load()
 
 template=ChatPromptTemplate.from_messages(
