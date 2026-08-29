@@ -2,7 +2,6 @@ import base64
 import io
 
 import pymupdf
-import pytesseract
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredExcelLoader
 from langchain_core.messages import HumanMessage
@@ -28,15 +27,10 @@ def render_page_to_image(pdf_path: str, page_number: int, zoom: float = 2.0) -> 
         doc.close()
 
 
-def ocr_with_tesseract(image: Image.Image) -> str:
-    """Fast, local OCR fallback. Handles neat handwriting/scans reasonably;
-    weak on messy handwriting (requires the tesseract-ocr system binary)."""
-    return pytesseract.image_to_string(image).strip()
-
-
 def ocr_with_vision_llm(image: Image.Image) -> str:
-    """Second-line OCR fallback for messy handwriting Tesseract can't read,
-    using Mistral's multimodal model to transcribe the page image."""
+    """OCR fallback for pages with no usable embedded text layer (e.g.
+    handwritten/scanned pages), using Mistral's multimodal model to
+    transcribe the page image."""
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     b64_image = base64.b64encode(buf.getvalue()).decode("utf-8")
@@ -47,7 +41,11 @@ def ocr_with_vision_llm(image: Image.Image) -> str:
                 "type": "text",
                 "text": (
                     "Transcribe all text in this image exactly as written, "
-                    "including handwriting. Output only the transcribed text."
+                    "including handwriting. Do not correct spelling, syntax, "
+                    "or errors in code - transcribe it verbatim, even if it "
+                    "looks wrong. If a word or character is illegible, mark "
+                    "it as [unclear] rather than guessing. Output only the "
+                    "transcribed text."
                 ),
             },
             {
@@ -60,9 +58,8 @@ def ocr_with_vision_llm(image: Image.Image) -> str:
 
 
 def extract_pdf_text(pdf_path: str) -> list[str]:
-    """Extract text per page, falling back to OCR (Tesseract, then a vision
-    LLM) for pages with no usable embedded text layer, e.g. handwritten or
-    scanned pages."""
+    """Extract text per page, falling back to vision-LLM OCR for pages with
+    no usable embedded text layer, e.g. handwritten or scanned pages."""
     pages = PyPDFLoader(pdf_path).load()
 
     page_texts = []
@@ -70,9 +67,7 @@ def extract_pdf_text(pdf_path: str) -> list[str]:
         text = page.page_content.strip()
         if len(text) < MIN_TEXT_LAYER_CHARS:
             image = render_page_to_image(pdf_path, i)
-            text = ocr_with_tesseract(image)
-            if len(text) < MIN_TEXT_LAYER_CHARS:
-                text = ocr_with_vision_llm(image)
+            text = ocr_with_vision_llm(image)
         page_texts.append(text)
 
     return page_texts
