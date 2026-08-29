@@ -17,7 +17,9 @@ template=ChatPromptTemplate.from_messages(
 
 model=ChatMistralAI(model= "mistral-small-2506")
 
-result=model.invoke("hello")
+prompt=template.format_prompt(data=docs[0].page_content)
+
+result=model.invoke(prompt)
 
 print(result.content)
 
