@@ -44,7 +44,6 @@ dependencies = [
     "markdown>=3.6",
     "unstructured[all-docs]>=0.15.0",
     "pymupdf>=1.24.0",
-    "pytesseract>=0.3.10",
     "pillow>=10.3.0",
 
     # Text Processing & Chunking
