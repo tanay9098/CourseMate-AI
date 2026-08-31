@@ -51,6 +51,7 @@ dependencies = [
     "nltk>=3.8.0",
     "spacy>=3.7.0",
     "rapidfuzz>=3.9.0",
+    "langchain-experimental>=0.3.0",
 
     # Web Scraping & Fetching
     "httpx>=0.27.0",

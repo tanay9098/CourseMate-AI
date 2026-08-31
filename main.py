@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredExcelLoader
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_mistralai import ChatMistralAI
 from PIL import Image
 
@@ -16,6 +18,9 @@ load_dotenv()
 MIN_TEXT_LAYER_CHARS = 20
 
 vision_model = ChatMistralAI(model="mistral-small-2506")
+
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+semantic_chunker = SemanticChunker(embeddings, breakpoint_threshold_type="percentile")
 
 
 def render_page_to_image(pdf_path: str, page_number: int, zoom: float = 2.0) -> Image.Image:
@@ -79,6 +84,9 @@ docs = data.load()
 pdf_pages = extract_pdf_text("documentLoaders/DSA documents/3. Sorting.pdf")
 pdf_text = "\n\n".join(pdf_pages)
 
+excel_chunks = semantic_chunker.split_documents(docs)
+pdf_chunks = semantic_chunker.create_documents([pdf_text])
+
 template = ChatPromptTemplate.from_messages(
     [("system", "you are an AI that summarizes the text "), ("human", "{data}")]
 )
@@ -88,17 +96,17 @@ template2 = ChatPromptTemplate.from_messages(
 )
 
 model = ChatMistralAI(model="mistral-small-2506")
-
-prompt = template.format_prompt(data=docs[0].page_content)
-
-result = model.invoke(prompt)
-
 model2 = ChatMistralAI(model="mistral-small-2506")
 
-prompt2 = template2.format_prompt(data=pdf_text)
+excel_summaries = [
+    model.invoke(template.format_prompt(data=chunk.page_content)).content
+    for chunk in excel_chunks
+]
 
-result2 = model2.invoke(prompt2)
+pdf_summaries = [
+    model2.invoke(template2.format_prompt(data=chunk.page_content)).content
+    for chunk in pdf_chunks
+]
 
-
-print(result.content)
-print(result2.content)
+print("\n\n".join(excel_summaries))
+print("\n\n".join(pdf_summaries))
