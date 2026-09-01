@@ -7,6 +7,7 @@ from langchain_community.document_loaders import PyPDFLoader, UnstructuredExcelL
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_mistralai import ChatMistralAI
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from PIL import Image
 
 load_dotenv()
@@ -16,6 +17,8 @@ load_dotenv()
 MIN_TEXT_LAYER_CHARS = 20
 
 vision_model = ChatMistralAI(model="mistral-small-2506")
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
 
 def render_page_to_image(pdf_path: str, page_number: int, zoom: float = 2.0) -> Image.Image:
@@ -74,10 +77,10 @@ def extract_pdf_text(pdf_path: str) -> list[str]:
 
 
 data = UnstructuredExcelLoader("documentLoaders/Striver Sheet.xlsx", mode="elements")
-docs = data.load()
+docs = text_splitter.split_documents(data.load())
 
 pdf_pages = extract_pdf_text("documentLoaders/DSA documents/3. Sorting.pdf")
-pdf_text = "\n\n".join(pdf_pages)
+pdf_chunks = text_splitter.split_text("\n\n".join(pdf_pages))
 
 template = ChatPromptTemplate.from_messages(
     [("system", "you are an AI that summarizes the text "), ("human", "{data}")]
@@ -88,17 +91,18 @@ template2 = ChatPromptTemplate.from_messages(
 )
 
 model = ChatMistralAI(model="mistral-small-2506")
-
-prompt = template.format_prompt(data=docs[0].page_content)
-
-result = model.invoke(prompt)
-
 model2 = ChatMistralAI(model="mistral-small-2506")
 
-prompt2 = template2.format_prompt(data=pdf_text)
+excel_summaries = []
+for chunk in docs:
+    prompt = template.format_prompt(data=chunk.page_content)
+    excel_summaries.append(model.invoke(prompt).content)
 
-result2 = model2.invoke(prompt2)
+pdf_summaries = []
+for chunk in pdf_chunks:
+    prompt2 = template2.format_prompt(data=chunk)
+    pdf_summaries.append(model2.invoke(prompt2).content)
 
 
-print(result.content)
-print(result2.content)
+print("\n\n".join(excel_summaries))
+print("\n\n".join(pdf_summaries))
