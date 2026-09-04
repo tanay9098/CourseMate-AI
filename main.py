@@ -3,12 +3,10 @@ import io
 
 import pymupdf
 from dotenv import load_dotenv
-from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredExcelLoader
-from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_mistralai import ChatMistralAI, MistralAIEmbeddings
+from langchain_mistralai import ChatMistralAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from PIL import Image
 
@@ -81,17 +79,8 @@ def extract_pdf_text(pdf_path: str) -> list[str]:
 data = UnstructuredExcelLoader("documentLoaders/Striver Sheet.xlsx", mode="elements")
 docs = text_splitter.split_documents(data.load())
 
-pdf_path = "documentLoaders/DSA documents/3. Sorting.pdf"
-pdf_pages = extract_pdf_text(pdf_path)
+pdf_pages = extract_pdf_text("documentLoaders/DSA documents/3. Sorting.pdf")
 pdf_chunks = text_splitter.split_text("\n\n".join(pdf_pages))
-pdf_docs = [Document(page_content=chunk, metadata={"source": pdf_path}) for chunk in pdf_chunks]
-
-embeddings = MistralAIEmbeddings(model="mistral-embed")
-vectorstore = Chroma.from_documents(
-    documents=docs + pdf_docs,
-    embedding=embeddings,
-    persist_directory="chroma_db",
-)
 
 template = ChatPromptTemplate.from_messages(
     [("system", "you are an AI that summarizes the text "), ("human", "{data}")]
