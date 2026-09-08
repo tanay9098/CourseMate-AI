@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredExcelLoader
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_mistralai import ChatMistralAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from PIL import Image
@@ -23,7 +25,8 @@ MISTRAL_REQUEST_DELAY_SECONDS = 1.2
 
 vision_model = ChatMistralAI(model="mistral-small-2506")
 
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+semantic_chunker = SemanticChunker(embeddings, breakpoint_threshold_type="percentile")
 
 
 def render_page_to_image(pdf_path: str, page_number: int, zoom: float = 2.0) -> Image.Image:
@@ -89,6 +92,9 @@ docs = text_splitter.split_documents(data.load())
 pdf_pages = extract_pdf_text("documentLoaders/DSA documents/3. Sorting.pdf")
 pdf_chunks = text_splitter.split_text("\n\n".join(pdf_pages))
 
+excel_chunks = semantic_chunker.split_documents(docs)
+pdf_chunks = semantic_chunker.create_documents([pdf_text])
+
 template = ChatPromptTemplate.from_messages(
     [("system", "you are an AI that summarizes the text "), ("human", "{data}")]
 )
@@ -100,18 +106,15 @@ template2 = ChatPromptTemplate.from_messages(
 model = ChatMistralAI(model="mistral-small-2506")
 model2 = ChatMistralAI(model="mistral-small-2506")
 
-excel_summaries = []
-for chunk in docs:
-    prompt = template.format_prompt(data=chunk.page_content)
-    excel_summaries.append(model.invoke(prompt).content)
-    time.sleep(MISTRAL_REQUEST_DELAY_SECONDS)
+excel_summaries = [
+    model.invoke(template.format_prompt(data=chunk.page_content)).content
+    for chunk in excel_chunks
+]
 
-pdf_summaries = []
-for chunk in pdf_chunks:
-    prompt2 = template2.format_prompt(data=chunk)
-    pdf_summaries.append(model2.invoke(prompt2).content)
-    time.sleep(MISTRAL_REQUEST_DELAY_SECONDS)
-
+pdf_summaries = [
+    model2.invoke(template2.format_prompt(data=chunk.page_content)).content
+    for chunk in pdf_chunks
+]
 
 print("\n\n".join(excel_summaries))
 print("\n\n".join(pdf_summaries))
