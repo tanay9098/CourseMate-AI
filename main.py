@@ -1,5 +1,6 @@
 import base64
 import io
+import time
 
 import pymupdf
 from dotenv import load_dotenv
@@ -17,6 +18,10 @@ load_dotenv()
 # Pages with fewer real characters than this are treated as scanned/handwritten
 # (pypdf found no usable text layer) and routed through OCR instead.
 MIN_TEXT_LAYER_CHARS = 20
+
+# Mistral's free tier allows ~1 request/second; pace OCR calls below that so
+# a multi-page batch doesn't trip a 429 instead of relying on retries alone.
+OCR_REQUEST_DELAY_SECONDS = 1.2
 
 vision_model = ChatMistralAI(model="mistral-small-2506")
 
@@ -60,7 +65,9 @@ def ocr_with_vision_llm(image: Image.Image) -> str:
             },
         ]
     )
-    return vision_model.invoke([message]).content.strip()
+    text = vision_model.invoke([message]).content.strip()
+    time.sleep(OCR_REQUEST_DELAY_SECONDS)
+    return text
 
 
 def extract_pdf_text(pdf_path: str) -> list[str]:

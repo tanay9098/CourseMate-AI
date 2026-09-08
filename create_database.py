@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredExcelLoader
-from langchain_mistralai import MistralAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
@@ -12,7 +12,12 @@ CHROMA_PERSIST_DIR = "./chroma_langchain_db"
 
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
-embeddings = MistralAIEmbeddings(model="mistral-embed")
+# Local, CPU-friendly embedding model - no API key, no rate limit, and
+# lightweight enough for machines without a dedicated GPU.
+embeddings = HuggingFaceEmbeddings(
+    model_name="BAAI/bge-small-en-v1.5",
+    encode_kwargs={"normalize_embeddings": True},
+)
 
 vector_store = Chroma(
     collection_name="coursemate_documents",
