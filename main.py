@@ -9,6 +9,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_mistralai import ChatMistralAI
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from PIL import Image
 
 load_dotenv()
@@ -79,10 +80,10 @@ def extract_pdf_text(pdf_path: str) -> list[str]:
 
 
 data = UnstructuredExcelLoader("documentLoaders/Striver Sheet.xlsx", mode="elements")
-docs = data.load()
+docs = text_splitter.split_documents(data.load())
 
 pdf_pages = extract_pdf_text("documentLoaders/DSA documents/3. Sorting.pdf")
-pdf_text = "\n\n".join(pdf_pages)
+pdf_chunks = text_splitter.split_text("\n\n".join(pdf_pages))
 
 excel_chunks = semantic_chunker.split_documents(docs)
 pdf_chunks = semantic_chunker.create_documents([pdf_text])
