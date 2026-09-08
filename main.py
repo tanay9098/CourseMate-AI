@@ -17,9 +17,9 @@ load_dotenv()
 # (pypdf found no usable text layer) and routed through OCR instead.
 MIN_TEXT_LAYER_CHARS = 20
 
-# Mistral's free tier allows ~1 request/second; pace OCR calls below that so
-# a multi-page batch doesn't trip a 429 instead of relying on retries alone.
-OCR_REQUEST_DELAY_SECONDS = 1.2
+# Mistral's free tier allows ~1 request/second; pace calls to it below that
+# so a multi-request batch doesn't trip a 429 instead of relying on retries alone.
+MISTRAL_REQUEST_DELAY_SECONDS = 1.2
 
 vision_model = ChatMistralAI(model="mistral-small-2506")
 
@@ -63,7 +63,7 @@ def ocr_with_vision_llm(image: Image.Image) -> str:
         ]
     )
     text = vision_model.invoke([message]).content.strip()
-    time.sleep(OCR_REQUEST_DELAY_SECONDS)
+    time.sleep(MISTRAL_REQUEST_DELAY_SECONDS)
     return text
 
 
@@ -104,11 +104,13 @@ excel_summaries = []
 for chunk in docs:
     prompt = template.format_prompt(data=chunk.page_content)
     excel_summaries.append(model.invoke(prompt).content)
+    time.sleep(MISTRAL_REQUEST_DELAY_SECONDS)
 
 pdf_summaries = []
 for chunk in pdf_chunks:
     prompt2 = template2.format_prompt(data=chunk)
     pdf_summaries.append(model2.invoke(prompt2).content)
+    time.sleep(MISTRAL_REQUEST_DELAY_SECONDS)
 
 
 print("\n\n".join(excel_summaries))
