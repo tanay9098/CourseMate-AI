@@ -1,12 +1,12 @@
 # CourseMate-AI
 
-A RAG-based AI application powered by Mistral AI that helps users interact with course materials through intelligent document loading, vector search, and conversational AI.
+A RAG-based AI application powered by local LLMs via Ollama that helps users interact with course materials through intelligent document loading, vector search, and conversational AI.
 
 ## Features
 
 - Document ingestion from multiple formats (PDF, DOCX, XLSX, PPTX, HTML, Markdown)
 - Vector-based semantic search using ChromaDB and sentence-transformers
-- LLM-powered Q&A via Mistral AI and LangChain
+- LLM-powered Q&A via local Ollama models and LangChain
 - FastAPI backend with async support
 
 ## Setup

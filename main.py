@@ -1,13 +1,12 @@
 import base64
 import io
-import time
 
 import pymupdf
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredExcelLoader
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_mistralai import ChatMistralAI
+from langchain_ollama import ChatOllama
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from PIL import Image
 
@@ -17,11 +16,7 @@ load_dotenv()
 # (pypdf found no usable text layer) and routed through OCR instead.
 MIN_TEXT_LAYER_CHARS = 20
 
-# Mistral's free tier allows ~1 request/second; pace calls to it below that
-# so a multi-request batch doesn't trip a 429 instead of relying on retries alone.
-MISTRAL_REQUEST_DELAY_SECONDS = 1.2
-
-vision_model = ChatMistralAI(model="mistral-small-2506")
+vision_model = ChatOllama(model="qwen2.5vl:3b")
 
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
@@ -37,7 +32,7 @@ def render_page_to_image(pdf_path: str, page_number: int, zoom: float = 2.0) -> 
 
 def ocr_with_vision_llm(image: Image.Image) -> str:
     """OCR fallback for pages with no usable embedded text layer (e.g.
-    handwritten/scanned pages), using Mistral's multimodal model to
+    handwritten/scanned pages), using a local vision-language model to
     transcribe the page image."""
     buf = io.BytesIO()
     image.save(buf, format="PNG")
@@ -62,9 +57,7 @@ def ocr_with_vision_llm(image: Image.Image) -> str:
             },
         ]
     )
-    text = vision_model.invoke([message]).content.strip()
-    time.sleep(MISTRAL_REQUEST_DELAY_SECONDS)
-    return text
+    return vision_model.invoke([message]).content.strip()
 
 
 def extract_pdf_text(pdf_path: str) -> list[str]:
@@ -97,20 +90,18 @@ template2 = ChatPromptTemplate.from_messages(
     [("system", "you are an AI that summarizes the text "), ("human", "{data}")]
 )
 
-model = ChatMistralAI(model="mistral-small-2506")
-model2 = ChatMistralAI(model="mistral-small-2506")
+model = ChatOllama(model="qwen2.5:3b-instruct")
+model2 = ChatOllama(model="qwen2.5:3b-instruct")
 
 excel_summaries = []
 for chunk in docs:
     prompt = template.format_prompt(data=chunk.page_content)
     excel_summaries.append(model.invoke(prompt).content)
-    time.sleep(MISTRAL_REQUEST_DELAY_SECONDS)
 
 pdf_summaries = []
 for chunk in pdf_chunks:
     prompt2 = template2.format_prompt(data=chunk)
     pdf_summaries.append(model2.invoke(prompt2).content)
-    time.sleep(MISTRAL_REQUEST_DELAY_SECONDS)
 
 
 print("\n\n".join(excel_summaries))

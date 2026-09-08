@@ -5,22 +5,19 @@ build-backend = "hatchling.build"
 [project]
 name = "coursemate-ai"
 version = "0.1.0"
-description = "A RAG-based AI application powered by Mistral AI"
+description = "A RAG-based AI application powered by local LLMs via Ollama"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 license = { text = "MIT" }
 
 dependencies = [
-    # LLM Provider
-    "mistralai>=1.0.0",
-
     # LangChain Ecosystem
     "langchain>=0.3.0",
     "langchain-core>=0.3.0",
     "langchain-community>=0.3.0",
-    "langchain-mistralai>=0.2.0",
     "langchain-chroma>=0.1.0",
     "langchain-huggingface>=0.1.0",
+    "langchain-ollama>=1.0.0",
     "langchain-text-splitters>=0.3.0",
 
     # Vector Store
