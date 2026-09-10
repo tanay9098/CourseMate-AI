@@ -1,8 +1,10 @@
 # import base64
 # import io
+import hashlib
 from pathlib import Path
 
 # import pymupdf
+from diskcache import Cache
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredExcelLoader
 
@@ -16,6 +18,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 load_dotenv()
 
 DOCUMENT_LOADERS_DIR = Path("documentLoaders")
+CACHE_DIR = ".cache/summaries"
+
+# Bounds how many chunks are summarized at once. Matches Ollama's default
+# OLLAMA_NUM_PARALLEL, so this saturates the server without piling up
+# requests it would just queue anyway.
+MAX_CONCURRENCY = 4
 
 # Pages with fewer real characters than this are treated as scanned/handwritten
 # (pypdf found no usable text layer) and routed through OCR instead.
@@ -89,23 +97,46 @@ template = ChatPromptTemplate.from_messages(
     [("system", "you are an AI that summarizes the text "), ("human", "{data}")]
 )
 
-template2 = ChatPromptTemplate.from_messages(
-    [("system", "you are an AI that summarizes the text "), ("human", "{data}")]
-)
-
 model = ChatOllama(model="gemma2:2b")
-model2 = ChatOllama(model="gemma2:2b")
 
-excel_summaries = []
-for chunk in docs:
-    prompt = template.format_prompt(data=chunk.page_content)
-    excel_summaries.append(model.invoke(prompt).content)
+cache = Cache(CACHE_DIR)
 
-pdf_summaries = []
-for chunk in pdf_chunks:
-    prompt2 = template2.format_prompt(data=chunk)
-    pdf_summaries.append(model2.invoke(prompt2).content)
 
+def _cache_key(model_name: str, text: str) -> str:
+    return hashlib.sha256(f"{model_name}|{text}".encode()).hexdigest()
+
+
+def summarize_chunks(texts: list[str], label: str) -> list[str]:
+    """Summarize each text with `model`, reusing cached results across runs
+    and running uncached chunks concurrently. Prints progress as chunks
+    finish so long runs show they're actually moving."""
+    keys = [_cache_key(model.model, text) for text in texts]
+    results: list[str | None] = [cache.get(key) for key in keys]
+
+    pending = [i for i, summary in enumerate(results) if summary is None]
+    total, cached = len(texts), len(texts) - len(pending)
+    print(f"[{label}] {cached}/{total} chunks already cached, {len(pending)} left to summarize")
+
+    if not pending:
+        return results  # type: ignore[return-value]
+
+    prompts = [template.format_prompt(data=texts[i]) for i in pending]
+    done = cached
+    for position, output in model.batch_as_completed(
+        prompts, config={"max_concurrency": MAX_CONCURRENCY}
+    ):
+        idx = pending[position]
+        summary = output.content
+        results[idx] = summary
+        cache.set(keys[idx], summary)
+        done += 1
+        print(f"[{label}] {done}/{total} chunks summarized ({done * 100 // total}%)")
+
+    return results  # type: ignore[return-value]
+
+
+excel_summaries = summarize_chunks([chunk.page_content for chunk in docs], "excel")
+pdf_summaries = summarize_chunks(pdf_chunks, "pdf")
 
 print("\n\n".join(excel_summaries))
 print("\n\n".join(pdf_summaries))
