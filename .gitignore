@@ -1,4 +1,5 @@
 /.venv
 /.env
 /chroma_langchain_db
+/.cache
 __pycache__/
