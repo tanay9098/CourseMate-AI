@@ -6,8 +6,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 
-PDF_PATH = "documentLoaders/DSA documents/3. Sorting.pdf"
-EXCEL_PATH = "documentLoaders/Striver Sheet.xlsx"
+PDF_PATH = "documentLoaders/DSA documents/Data Structures Full Notes.pdf"
+EXCEL_PATH = "documentLoaders/DSA documents/Striver Sheet.xlsx"
 CHROMA_PERSIST_DIR = "./chroma_langchain_db"
 
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
